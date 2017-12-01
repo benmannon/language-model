@@ -106,12 +106,10 @@ def batch(corpus, size, window_size, num_skips):
     # fill up the batch with skip word samples
     buf = []
     inc = 0
-    num_left = size - len(samples)
-    while num_left > 0:
+    while len(samples) < size:
         buf = n_skips(corpus, window_size, num_skips)
-        inc = min(len(buf), num_left)
+        inc = min(len(buf), size - len(samples))
         samples.extend(buf[:inc])
-        num_left = size - len(samples)
 
     # the batch is full; remember the spares for next time
     spares += buf[inc:]
