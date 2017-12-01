@@ -75,7 +75,7 @@ def n_skips(corpus, w, max_n):
     center = corpus[corpus_i]
     context = corpus[a:corpus_i] + corpus[corpus_i + 1:b + 1]
 
-    # pick up to n skip words from the context
+    # pick up to max_n skip words from the context
     n = min(max_n, len(context))
     picks = random.sample(context, n)
 
