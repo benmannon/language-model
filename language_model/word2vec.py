@@ -13,7 +13,7 @@ CORPUS_TXT = "corpus.txt"
 
 # hyper-parameters
 VOCABULARY_SIZE = 50000
-BATCH_SIZE = 64
+BATCH_SIZE = 128
 WINDOW_SIZE = 1
 NUM_SKIPS = 2
 
