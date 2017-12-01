@@ -116,6 +116,11 @@ def batch(corpus, size, window_size, num_skips):
     return samples
 
 
+def print_batch(samples, words):
+    for sample in samples:
+        print(words[sample[0]], "|", words[sample[1]])
+
+
 def main():
     text_corpus = load_corpus()
     print("len(text_corpus) =", len(text_corpus))
@@ -129,7 +134,8 @@ def main():
     # free memory
     del text_corpus
 
-    print("batch() = ", batch(corpus, BATCH_SIZE, WINDOW_SIZE, NUM_SKIPS))
+    samples = batch(corpus, BATCH_SIZE, WINDOW_SIZE, NUM_SKIPS)
+    print_batch(samples[:8], words)
 
 
 main()
