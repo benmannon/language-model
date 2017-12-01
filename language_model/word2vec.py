@@ -66,19 +66,25 @@ def n_skips(corpus, w, max_n):
 
     corpus_len = len(corpus)
 
+    # where in the corpus to find context words
+    # (stay within bounds)
     a = corpus_i - w if corpus_i >= w else 0
     b = corpus_i + w if corpus_i < corpus_len - w else corpus_len - 1
 
+    # extract the center and context words
     center = corpus[corpus_i]
     context = corpus[a:corpus_i] + corpus[corpus_i + 1:b + 1]
 
+    # pick up to n skip words from the context
     n = min(max_n, len(context))
     picks = random.sample(context, n)
 
+    # each sample consists of the center word and one random context word
     skips = []
     for pick in picks:
         skips.append([center, pick])
 
+    # step forward thru the corpus
     corpus_i += 1
     if corpus_i >= corpus_len:
         corpus_i = 0
@@ -92,19 +98,22 @@ spares = []
 def batch(corpus, size, window_size, num_skips):
     global spares
 
-    skip_batch = spares
+    # pick up left-over samples from previous batch
+    samples = spares
     spares = []
 
+    # fill up the batch with skip word samples
     num_left = size
     buf = []
     while num_left > 0:
-        num_left = size - len(skip_batch)
+        num_left = size - len(samples)
         buf = n_skips(corpus, window_size, num_skips)
         inc = min(len(buf), num_left)
-        skip_batch.extend(buf[:inc])
+        samples.extend(buf[:inc])
 
+    # the batch is full; remember the spares for next time
     spares = buf[inc:]
-    return skip_batch
+    return samples
 
 
 def main():
