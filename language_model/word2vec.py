@@ -161,7 +161,8 @@ def model(graph):
         similarity = tf.matmul(normalized_examples, normalized_embeds, transpose_b=True)
 
         init = tf.global_variables_initializer()
-        return init, embeds, batch_input, loss, similarity
+
+    return init, embeds, batch_input, loss, similarity
 
 
 def main():
