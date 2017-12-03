@@ -4,8 +4,11 @@ from __future__ import division
 from __future__ import print_function
 
 import collections
+import math
 import random
 import zipfile
+
+import tensorflow as tf
 
 # where to load the corpus texts
 CORPUS_ZIP = "corpus.zip"
@@ -14,8 +17,10 @@ CORPUS_TXT = "corpus.txt"
 # hyper-parameters
 VOCABULARY_SIZE = 50000
 BATCH_SIZE = 128
+NEGATIVE_SAMPLES = 64
 WINDOW_SIZE = 1
 NUM_SKIPS = 2
+EMBEDDING_SIZE = 128
 
 
 def load_corpus():
@@ -121,6 +126,44 @@ def print_batch(samples, words):
         print(words[sample[0]], "|", words[sample[1]])
 
 
+def model(graph):
+    with graph.as_default():
+        batch_input = tf.placeholder(tf.int32, shape=(BATCH_SIZE, 2))
+
+        # center word and context labels
+        batch_t = tf.transpose(batch_input)
+        inputs = batch_t[0]
+        labels = tf.expand_dims(batch_t[1], 1)
+
+        # word embeddings
+        embeds_init = tf.random_uniform([VOCABULARY_SIZE, EMBEDDING_SIZE], -1.0, 1.0)
+        embeds = tf.Variable(embeds_init)
+        embeds_lookup = tf.nn.embedding_lookup(embeds, inputs)
+
+        # NCE variables
+        nce_w_init = tf.truncated_normal([VOCABULARY_SIZE, EMBEDDING_SIZE], stddev=1.0 / math.sqrt(EMBEDDING_SIZE))
+        nce_w = tf.Variable(nce_w_init)
+        nce_b = tf.Variable(tf.zeros([VOCABULARY_SIZE]))
+
+        # NCE loss
+        nce_loss = tf.nn.nce_loss(weights=nce_w,
+                                  biases=nce_b,
+                                  labels=labels,
+                                  inputs=embeds_lookup,
+                                  num_sampled=NEGATIVE_SAMPLES,
+                                  num_classes=VOCABULARY_SIZE)
+        loss = tf.reduce_mean(nce_loss)
+
+        # calculate cosine similarity
+        norm = tf.sqrt(tf.reduce_sum(tf.square(embeds), 1, keep_dims=True))
+        normalized_embeds = embeds / norm
+        normalized_examples = tf.nn.embedding_lookup(normalized_embeds, inputs)
+        similarity = tf.matmul(normalized_examples, normalized_embeds, transpose_b=True)
+
+        init = tf.global_variables_initializer()
+        return init, embeds, batch_input, loss, similarity
+
+
 def main():
     text_corpus = load_corpus()
     print("len(text_corpus) =", len(text_corpus))
@@ -136,6 +179,17 @@ def main():
 
     samples = batch(corpus, BATCH_SIZE, WINDOW_SIZE, NUM_SKIPS)
     print_batch(samples[:8], words)
+
+    graph = tf.Graph()
+    init, embeds, batch_input, loss, similarity = model(graph)
+    with tf.Session(graph=graph) as session:
+        session.as_default()
+
+        print("Initializing")
+        init.run()
+
+        print("Embedding samples:")
+        print(embeds[:2].eval({}))
 
 
 main()
