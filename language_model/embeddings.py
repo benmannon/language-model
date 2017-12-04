@@ -129,6 +129,14 @@ def print_batch(samples, words):
         print(words[sample[0]], "|", words[sample[1]])
 
 
+def print_neighbors(words, labels, neighbors):
+    for i in range(0, len(neighbors)):
+        neighbor_words = list()
+        for j in range(0, len(neighbors[i])):
+            neighbor_words.append(words[neighbors[i, j]])
+        print(words[labels[i]], '->', neighbor_words)
+
+
 class Embeddings(tf.layers.Layer):
     def __init__(self, vocabulary_size, embedding_size=128, **kwargs):
         super(Embeddings, self).__init__(**kwargs)
@@ -141,6 +149,7 @@ class Embeddings(tf.layers.Layer):
         shape = [self.vocabulary_size, self.embedding_size]
         self.embeddings = self.add_variable('embeddings',
                                             shape,
+                                            dtype=tf.float32,
                                             initializer=tf.random_uniform_initializer(-1.0, 1.0))
 
         super(Embeddings, self).build(_)
@@ -246,9 +255,6 @@ def main():
     # free memory
     del text_corpus
 
-    samples = batch(corpus, BATCH_SIZE, WINDOW_SIZE, NUM_SKIPS)
-    print_batch(samples[:8], words)
-
     graph = tf.Graph()
     with graph.as_default():
         input_batch = tf.placeholder(tf.int32, shape=[None, 2])
@@ -260,25 +266,24 @@ def main():
         top_k = nearest_neighbors(embeds, tf.transpose(input_batch)[0], NEIGHBORS_K)
         init = tf.global_variables_initializer()
 
-    with tf.Session(graph=graph).as_default():
+        with tf.Session(graph=graph).as_default():
 
-        print("Initializing")
-        init.run()
+            print("initializing")
+            init.run()
 
-        print("Embedding samples:")
-        print(embeds[:2].eval())
-
-        print("Training loss", loss.eval({
-            input_batch: samples
-        }))
-
-        print("Nearest neighbors:")
-        k_eval = top_k.eval({input_batch: samples[:2]})
-        for i in range(0, len(k_eval)):
-            neighbor_words = list()
-            for j in range(0, len(k_eval[i])):
-                neighbor_words.append(words[k_eval[i][j]])
-            print(words[samples[i][0]], '->', neighbor_words)
+            print("training")
+            loss_acc = 0
+            optimizer = tf.train.GradientDescentOptimizer(1.0).minimize(loss)
+            for step in range(0, 100000):
+                samples = batch(corpus, BATCH_SIZE, WINDOW_SIZE, NUM_SKIPS)
+                optimizer.run({input_batch: samples})
+                if step % 10000 == 0:
+                    k_eval = top_k.eval({input_batch: samples[:2]})
+                    print_neighbors(words, samples[:8][0], k_eval)
+                loss_acc += loss.eval({input_batch: samples})
+                if step % 2000 == 0:
+                    print('step', step, 'avg loss', loss_acc / 2000)
+                    loss_acc = 0
 
 
 main()
