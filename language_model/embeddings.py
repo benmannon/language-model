@@ -22,6 +22,9 @@ WINDOW_SIZE = 1
 NUM_SKIPS = 2
 EMBEDDING_SIZE = 128
 
+# evaluation
+NEIGHBORS_K = 8
+
 
 def load_corpus():
     with zipfile.ZipFile(CORPUS_ZIP) as f:
@@ -206,12 +209,13 @@ def nce_loss(input_embeddings, input_batch, vocabulary_size,
     return layer.apply([input_embeddings, input_batch])
 
 
-class CosineSimilarity(tf.layers.Layer):
-    def __init__(self, **kwargs):
-        super(CosineSimilarity, self).__init__(**kwargs)
+class NearestNeighbors(tf.layers.Layer):
+    def __init__(self, k, **kwargs):
+        super(NearestNeighbors, self).__init__(**kwargs)
+        self.k = k
 
     def call(self, inputs, **kwargs):
-        inputs = super(CosineSimilarity, self).call(inputs, **kwargs)
+        inputs = super(NearestNeighbors, self).call(inputs, **kwargs)
         embeds, labels = inputs
 
         # calculate cosine similarity
@@ -220,11 +224,13 @@ class CosineSimilarity(tf.layers.Layer):
         normalized_examples = tf.nn.embedding_lookup(normalized_embeds, labels)
         similarity = tf.matmul(normalized_examples, normalized_embeds, transpose_b=True)
 
-        return similarity
+        # exclude top result (current label)
+        _, top_k = tf.nn.top_k(similarity, self.k + 1)
+        return top_k[:, 1:self.k + 1]
 
 
-def cosine_similarity(embeds, labels):
-    return CosineSimilarity().apply([embeds, labels])
+def nearest_neighbors(embeds, labels, k):
+    return NearestNeighbors(k).apply([embeds, labels])
 
 
 def main():
@@ -251,7 +257,7 @@ def main():
                         input_batch=input_batch,
                         vocabulary_size=VOCABULARY_SIZE,
                         embedding_size=EMBEDDING_SIZE)
-        similarity = cosine_similarity(embeds, tf.transpose(input_batch)[0])
+        top_k = nearest_neighbors(embeds, tf.transpose(input_batch)[0], NEIGHBORS_K)
         init = tf.global_variables_initializer()
 
     with tf.Session(graph=graph).as_default():
@@ -266,10 +272,13 @@ def main():
             input_batch: samples
         }))
 
-        print("Similarity samples:")
-        print(similarity.eval({
-            input_batch: samples[:2]
-        }))
+        print("Nearest neighbors:")
+        k_eval = top_k.eval({input_batch: samples[:2]})
+        for i in range(0, len(k_eval)):
+            neighbor_words = list()
+            for j in range(0, len(k_eval[i])):
+                neighbor_words.append(words[k_eval[i][j]])
+            print(words[samples[i][0]], '->', neighbor_words)
 
 
 main()
