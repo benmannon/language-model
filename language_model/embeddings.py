@@ -11,8 +11,8 @@ import zipfile
 import tensorflow as tf
 
 # where to load the corpus texts
-CORPUS_ZIP = "corpus.zip"
-CORPUS_TXT = "corpus.txt"
+CORPUS_ZIP = 'corpus.zip'
+CORPUS_TXT = 'corpus.txt'
 
 # hyper-parameters
 VOCABULARY_SIZE = 50000
@@ -126,7 +126,7 @@ def batch(corpus, size, window_size, num_skips):
 
 def print_batch(samples, words):
     for sample in samples:
-        print(words[sample[0]], "|", words[sample[1]])
+        print(words[sample[0]], '|', words[sample[1]])
 
 
 def print_neighbors(words, labels, neighbors):
@@ -244,13 +244,13 @@ def nearest_neighbors(embeds, labels, k):
 
 def main():
     text_corpus = load_corpus()
-    print("len(text_corpus) =", len(text_corpus))
+    print('len(text_corpus) =', len(text_corpus))
 
     counts, codes, words, corpus = build_vocabulary(text_corpus)
-    print("len(counts) =", len(counts))
-    print("len(codes) =", len(codes))
-    print("len(words) =", len(words))
-    print("len(corpus) =", len(corpus))
+    print('len(counts) =', len(counts))
+    print('len(codes) =', len(codes))
+    print('len(words) =', len(words))
+    print('len(corpus) =', len(corpus))
 
     # free memory
     del text_corpus
@@ -268,10 +268,10 @@ def main():
 
         with tf.Session(graph=graph).as_default():
 
-            print("initializing")
+            print('initializing')
             init.run()
 
-            print("training")
+            print('training')
             loss_acc = 0
             optimizer = tf.train.GradientDescentOptimizer(1.0).minimize(loss)
             for step in range(0, 100000):
