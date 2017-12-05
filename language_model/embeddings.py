@@ -25,6 +25,8 @@ NUM_SKIPS = 2
 EMBEDDING_SIZE = 128
 
 # evaluation
+LOSS_INTERVAL = 2000
+NEIGHBORS_INTERVAL = 10000
 NEIGHBORS_N = 8
 NEIGHBORS_K = 8
 
@@ -290,6 +292,7 @@ def main():
             init.run()
 
             print('training')
+            loss_n = 0
             loss_acc = 0
             optimizer = tf.train.GradientDescentOptimizer(1.0).minimize(loss)
             for step in range(0, 100000):
@@ -298,13 +301,15 @@ def main():
                 optimizer.run({input_batch: samples})
                 summary = summaries.eval(({input_batch: samples}))
                 summary_writer.add_summary(summary, step)
-                if step % 10000 == 0:
+                if step % NEIGHBORS_INTERVAL == 0:
                     top_k_labels = corpus[neighbor_i:neighbor_i + NEIGHBORS_N]
                     k_eval = top_k.eval({neighbor_labels: top_k_labels})
                     print_neighbors(words, top_k_labels, k_eval)
+                loss_n += 1
                 loss_acc += loss.eval({input_batch: samples})
-                if step % 2000 == 0:
-                    print('step', step, 'avg loss', loss_acc / 2000)
+                if step % LOSS_INTERVAL == 0:
+                    print('step', step, 'avg loss', loss_acc / loss_n)
+                    loss_n = 0
                     loss_acc = 0
 
             print('saving embeddings')
