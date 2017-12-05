@@ -279,10 +279,10 @@ def main():
     graph = tf.Graph()
     with graph.as_default():
         input_batch = tf.placeholder(tf.int32, shape=[None, 2])
-        embeds = embeddings(VOCABULARY_SIZE, EMBEDDING_SIZE)
+        embeds = embeddings(len(counts), EMBEDDING_SIZE)
         loss = nce_loss(input_embeddings=embeds,
                         input_batch=input_batch,
-                        vocabulary_size=VOCABULARY_SIZE,
+                        vocabulary_size=len(counts),
                         embedding_size=EMBEDDING_SIZE)
         neighbor_labels = tf.placeholder(tf.int32, shape=[None])
         top_k = nearest_neighbors(embeds, neighbor_labels, NEIGHBORS_K)
