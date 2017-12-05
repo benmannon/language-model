@@ -325,8 +325,7 @@ def main():
                     print(
                         'step {:d},'.format(step),
                         'pass {:d} of {:d},'.format(pass_n + 1, PASSES_N),
-                        'index {:d},'.format(corpus_i),
-                        'progress {:.2f}%,'.format(100 * (corpus_i + 1) / len(corpus)),
+                        'progress {:.2f}%,'.format(100 * (pass_n * len(corpus) + corpus_i + 1) / (PASSES_N * len(corpus))),
                         'avg loss {:.2f}'.format(loss_acc / loss_n)
                     )
                     loss_n = 0
