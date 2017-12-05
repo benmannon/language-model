@@ -23,6 +23,7 @@ NEGATIVE_SAMPLES = 64
 WINDOW_SIZE = 1
 NUM_SKIPS = 2
 EMBEDDING_SIZE = 128
+STEPS_N = 100000
 
 # evaluation
 LOSS_INTERVAL = 2000
@@ -295,7 +296,7 @@ def main():
             loss_n = 0
             loss_acc = 0
             optimizer = tf.train.GradientDescentOptimizer(1.0).minimize(loss)
-            for step in range(0, 100000):
+            for step in range(0, STEPS_N):
                 neighbor_i = corpus_i
                 samples = batch(corpus, BATCH_SIZE, WINDOW_SIZE, NUM_SKIPS)
                 optimizer.run({input_batch: samples})
