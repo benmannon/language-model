@@ -275,7 +275,8 @@ def main():
                         input_batch=input_batch,
                         vocabulary_size=VOCABULARY_SIZE,
                         embedding_size=EMBEDDING_SIZE)
-        top_k = nearest_neighbors(embeds, tf.transpose(input_batch)[0], NEIGHBORS_K)
+        neighbor_labels = tf.placeholder(tf.int32, shape=[None])
+        top_k = nearest_neighbors(embeds, neighbor_labels, NEIGHBORS_K)
         init = tf.global_variables_initializer()
 
         with tf.name_scope('summaries'):
@@ -297,8 +298,9 @@ def main():
                 summary = summaries.eval(({input_batch: samples}))
                 summary_writer.add_summary(summary, step)
                 if step % 10000 == 0:
-                    k_eval = top_k.eval({input_batch: samples[:NEIGHBORS_N]})
-                    print_neighbors(words, samples[:NEIGHBORS_N, 0], k_eval)
+                    top_k_labels = samples[:NEIGHBORS_N, 0]
+                    k_eval = top_k.eval({neighbor_labels: top_k_labels})
+                    print_neighbors(words, top_k_labels, k_eval)
                 loss_acc += loss.eval({input_batch: samples})
                 if step % 2000 == 0:
                     print('step', step, 'avg loss', loss_acc / 2000)
