@@ -9,6 +9,7 @@ import random
 import time
 import zipfile
 
+import numpy as np
 import tensorflow as tf
 
 # where to load the corpus texts
@@ -24,6 +25,7 @@ NUM_SKIPS = 2
 EMBEDDING_SIZE = 128
 
 # evaluation
+NEIGHBORS_N = 8
 NEIGHBORS_K = 8
 
 
@@ -122,7 +124,7 @@ def batch(corpus, size, window_size, num_skips):
 
     # the batch is full; remember the spares for next time
     spares += buf[inc:]
-    return samples
+    return np.array(samples)
 
 
 def print_batch(samples, words):
@@ -295,8 +297,8 @@ def main():
                 summary = summaries.eval(({input_batch: samples}))
                 summary_writer.add_summary(summary, step)
                 if step % 10000 == 0:
-                    k_eval = top_k.eval({input_batch: samples[:2]})
-                    print_neighbors(words, samples[:8][0], k_eval)
+                    k_eval = top_k.eval({input_batch: samples[:NEIGHBORS_N]})
+                    print_neighbors(words, samples[:NEIGHBORS_N, 0], k_eval)
                 loss_acc += loss.eval({input_batch: samples})
                 if step % 2000 == 0:
                     print('step', step, 'avg loss', loss_acc / 2000)
