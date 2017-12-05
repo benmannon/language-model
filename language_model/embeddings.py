@@ -2,14 +2,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import collections
 import math
-import random
 import time
-import zipfile
 
 import numpy as np
 import tensorflow as tf
+
+from lm_corpus import *
 
 # where to load the corpus texts
 CORPUS_ZIP = 'corpus.zip'
@@ -31,86 +30,10 @@ NEIGHBORS_N = 8
 NEIGHBORS_K = 8
 
 
-def load_corpus():
-    with zipfile.ZipFile(CORPUS_ZIP) as f:
-        return f.read(CORPUS_TXT).split()
-
-
-def build_vocabulary(text_corpus):
-
-    # occurrence counts of vocabulary words
-    counts = collections.Counter(text_corpus).most_common(VOCABULARY_SIZE - 1)
-
-    # build a dictionary that maps words to codes
-    # (rare words all share the same code)
-    codes = dict(UNK=0)
-    for word, _ in counts:
-        codes[word] = len(codes)
-
-    # also map codes to words (reverse dictionary)
-    words = dict(zip(codes.values(), codes.keys()))
-
-    # process the textual corpus into codes
-    corpus = list()
-    unk_count = 0
-    unk_code = codes.get('UNK')
-    for word in text_corpus:
-        code = codes.get(word, unk_code)
-        if code == unk_code:
-            unk_count += 1
-        corpus.append(code)
-
-    # insert unknown word count in ordered position
-    unk_index = VOCABULARY_SIZE - 1
-    for i, count in enumerate(counts):
-        if unk_count > count[1]:
-            unk_index = i
-            break
-    counts.insert(unk_index, ['UNK', unk_count])
-
-    return counts, codes, words, corpus
-
-
-corpus_i = 0
-
-
-def n_skips(corpus, w, max_n):
-    global corpus_i
-
-    corpus_len = len(corpus)
-
-    # return early if corpus is fully processed
-    if corpus_i >= corpus_len:
-        return []
-
-    # where in the corpus to find context words
-    # (stay within bounds)
-    a = corpus_i - w if corpus_i >= w else 0
-    b = corpus_i + w if corpus_i < corpus_len - w else corpus_len - 1
-
-    # extract the center and context words
-    center = corpus[corpus_i]
-    context = corpus[a:corpus_i] + corpus[corpus_i + 1:b + 1]
-
-    # pick up to max_n skip words from the context
-    n = min(max_n, len(context))
-    picks = random.sample(context, n)
-
-    # each sample consists of the center word and one random context word
-    skips = []
-    for pick in picks:
-        skips.append([center, pick])
-
-    # step forward thru the corpus
-    corpus_i += 1
-
-    return skips
-
-
 spares = []
 
 
-def batch(corpus, size, window_size, num_skips):
+def batch(n_skip_sampler, size):
     global spares
 
     # pick up left-over samples from previous batch
@@ -122,7 +45,7 @@ def batch(corpus, size, window_size, num_skips):
     buf = ['dummy']
     inc = 0
     while len(samples) < size and buf:
-        buf = n_skips(corpus, window_size, num_skips)
+        buf = n_skip_sampler.sample()
         inc = size - len(samples)
         samples.extend(buf[:inc])
 
@@ -131,22 +54,17 @@ def batch(corpus, size, window_size, num_skips):
     return np.array(samples)
 
 
-def rewind():
-    global corpus_i
-    corpus_i = 0
-
-
 def print_batch(samples, words):
     for sample in samples:
         print(words[sample[0]], '|', words[sample[1]])
 
 
-def print_neighbors(words, labels, neighbors):
+def print_neighbors(corpus, labels, neighbors):
     for i in range(0, len(neighbors)):
         neighbor_words = list()
         for j in range(0, len(neighbors[i])):
-            neighbor_words.append(words[neighbors[i, j]])
-        print(words[labels[i]], '->', neighbor_words)
+            neighbor_words.append(corpus.to_word(neighbors[i, j]))
+        print(corpus.to_word(labels[i]), '->', neighbor_words)
 
 
 class Embeddings(tf.layers.Layer):
@@ -255,34 +173,26 @@ def nearest_neighbors(embeds, labels, k):
 
 
 def main():
-    text_corpus = load_corpus()
-    print('len(text_corpus) =', len(text_corpus))
+    print('loading corpus')
+    corpus = ZipTxtCorpus(CORPUS_ZIP, CORPUS_TXT, VOCABULARY_SIZE)
+    sampler = NSkipSampler(corpus, WINDOW_SIZE, NUM_SKIPS)
 
-    counts, codes, words, corpus = build_vocabulary(text_corpus)
-    print('len(counts) =', len(counts))
-    print('len(codes) =', len(codes))
-    print('len(words) =', len(words))
-    print('len(corpus) =', len(corpus))
-
-    print('saving labels (vocabulary)')
+    print('saving vocabulary size', corpus.vocab_size)
     f = open('./summaries/labels_%d.tsv' % time.time(), 'w')
     try:
-        for word, _ in counts:
+        for word, _ in corpus.counts:
             f.write(word)
             f.write('\n')
     finally:
         f.close()
 
-    # free memory
-    del text_corpus
-
     graph = tf.Graph()
     with graph.as_default():
         input_batch = tf.placeholder(tf.int32, shape=[None, 2])
-        embeds = embeddings(len(counts), EMBEDDING_SIZE)
+        embeds = embeddings(corpus.vocab_size, EMBEDDING_SIZE)
         loss = nce_loss(input_embeddings=embeds,
                         input_batch=input_batch,
-                        vocabulary_size=len(counts),
+                        vocabulary_size=corpus.vocab_size,
                         embedding_size=EMBEDDING_SIZE)
         neighbor_labels = tf.placeholder(tf.int32, shape=[None])
         top_k = nearest_neighbors(embeds, neighbor_labels, NEIGHBORS_K)
@@ -305,27 +215,31 @@ def main():
             step = 0
             optimizer = tf.train.GradientDescentOptimizer(1.0).minimize(loss)
             while pass_n < PASSES_N:
-                neighbor_i = corpus_i
-                samples = batch(corpus, BATCH_SIZE, WINDOW_SIZE, NUM_SKIPS)
+                samples = batch(sampler, BATCH_SIZE)
                 if len(samples) == 0:
                     # completed a pass thru the corpus
-                    rewind()
+                    corpus.rewind()
                     pass_n += 1
                     continue
                 optimizer.run({input_batch: samples})
                 summary = summaries.eval(({input_batch: samples}))
                 summary_writer.add_summary(summary, step)
                 if step % NEIGHBORS_INTERVAL == 0:
-                    top_k_labels = corpus[neighbor_i:neighbor_i + NEIGHBORS_N]
+                    top_k_labels = []
+                    for label, _ in samples:
+                        if len(top_k_labels) >= NEIGHBORS_N:
+                            break
+                        if label not in top_k_labels:
+                            top_k_labels.append(label)
                     k_eval = top_k.eval({neighbor_labels: top_k_labels})
-                    print_neighbors(words, top_k_labels, k_eval)
+                    print_neighbors(corpus, top_k_labels, k_eval)
                 loss_n += 1
                 loss_acc += loss.eval({input_batch: samples})
                 if step % LOG_INTERVAL == 0:
                     print(
                         'step {:d},'.format(step),
                         'pass {:d} of {:d},'.format(pass_n + 1, PASSES_N),
-                        'progress {:.2f}%,'.format(100 * (pass_n * len(corpus) + corpus_i) / (PASSES_N * len(corpus))),
+                        'progress {:.2f}%,'.format(100 * (pass_n + corpus.est_progress) / PASSES_N),
                         'avg loss {:.2f}'.format(loss_acc / loss_n)
                     )
                     loss_n = 0
