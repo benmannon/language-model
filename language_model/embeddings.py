@@ -6,6 +6,7 @@ from __future__ import print_function
 import collections
 import math
 import random
+import time
 import zipfile
 
 import tensorflow as tf
@@ -253,7 +254,7 @@ def main():
     print('len(corpus) =', len(corpus))
 
     print('saving labels (vocabulary)')
-    f = open('./summaries/labels.tsv', 'w')
+    f = open('./summaries/labels_%d.tsv' % time.time(), 'w')
     try:
         for word, _ in counts:
             f.write(word)
@@ -276,7 +277,7 @@ def main():
         init = tf.global_variables_initializer()
 
         with tf.name_scope('summaries'):
-            tf.summary.scalar('loss', loss)
+            tf.summary.scalar('loss_%d' % time.time(), loss)
             summaries = tf.summary.merge_all()
             summary_writer = tf.summary.FileWriter('summaries')
 
