@@ -293,12 +293,13 @@ def main():
             loss_acc = 0
             optimizer = tf.train.GradientDescentOptimizer(1.0).minimize(loss)
             for step in range(0, 100000):
+                neighbor_i = corpus_i
                 samples = batch(corpus, BATCH_SIZE, WINDOW_SIZE, NUM_SKIPS)
                 optimizer.run({input_batch: samples})
                 summary = summaries.eval(({input_batch: samples}))
                 summary_writer.add_summary(summary, step)
                 if step % 10000 == 0:
-                    top_k_labels = samples[:NEIGHBORS_N, 0]
+                    top_k_labels = corpus[neighbor_i:neighbor_i + NEIGHBORS_N]
                     k_eval = top_k.eval({neighbor_labels: top_k_labels})
                     print_neighbors(words, top_k_labels, k_eval)
                 loss_acc += loss.eval({input_batch: samples})
