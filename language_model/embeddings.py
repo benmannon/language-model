@@ -119,9 +119,9 @@ def batch(corpus, size, window_size, num_skips):
     spares = spares[len(samples):]
 
     # fill up the batch with skip word samples
-    buf = []
+    buf = ['dummy']
     inc = 0
-    while len(samples) < size:
+    while len(samples) < size and buf:
         buf = n_skips(corpus, window_size, num_skips)
         inc = size - len(samples)
         samples.extend(buf[:inc])
@@ -325,7 +325,7 @@ def main():
                     print(
                         'step {:d},'.format(step),
                         'pass {:d} of {:d},'.format(pass_n + 1, PASSES_N),
-                        'progress {:.2f}%,'.format(100 * (pass_n * len(corpus) + corpus_i + 1) / (PASSES_N * len(corpus))),
+                        'progress {:.2f}%,'.format(100 * (pass_n * len(corpus) + corpus_i) / (PASSES_N * len(corpus))),
                         'avg loss {:.2f}'.format(loss_acc / loss_n)
                     )
                     loss_n = 0
