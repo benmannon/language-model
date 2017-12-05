@@ -5,6 +5,7 @@ from __future__ import print_function
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 import collections
+import numpy as np
 import random
 import zipfile
 
@@ -166,3 +167,28 @@ class NSkipSampler:
             n_skips.append([center, pick])
 
         return n_skips
+
+
+class Batchifier():
+    def __init__(self, sampler):
+        self._sampler = sampler
+        self._spares = []
+
+    def batch(self, size):
+
+        # pick up left-over samples from previous batch
+        # (but don't overfill if the batch size is small)
+        samples = self._spares[:size]
+        self._spares = self._spares[len(samples):]
+
+        # fill up the batch with skip word samples
+        buf = ['dummy']
+        inc = 0
+        while len(samples) < size and buf:
+            buf = self._sampler.sample()
+            inc = size - len(samples)
+            samples.extend(buf[:inc])
+
+        # the batch is full; remember the spares for next time
+        self._spares += buf[inc:]
+        return np.array(samples)

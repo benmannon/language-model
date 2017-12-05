@@ -30,30 +30,6 @@ NEIGHBORS_N = 8
 NEIGHBORS_K = 8
 
 
-spares = []
-
-
-def batch(n_skip_sampler, size):
-    global spares
-
-    # pick up left-over samples from previous batch
-    # (but don't overfill if the batch size is small)
-    samples = spares[:size]
-    spares = spares[len(samples):]
-
-    # fill up the batch with skip word samples
-    buf = ['dummy']
-    inc = 0
-    while len(samples) < size and buf:
-        buf = n_skip_sampler.sample()
-        inc = size - len(samples)
-        samples.extend(buf[:inc])
-
-    # the batch is full; remember the spares for next time
-    spares += buf[inc:]
-    return np.array(samples)
-
-
 def print_batch(samples, words):
     for sample in samples:
         print(words[sample[0]], '|', words[sample[1]])
@@ -176,6 +152,7 @@ def main():
     print('loading corpus')
     corpus = ZipTxtCorpus(CORPUS_ZIP, CORPUS_TXT, VOCABULARY_SIZE)
     sampler = NSkipSampler(corpus, WINDOW_SIZE, NUM_SKIPS)
+    batchifier = Batchifier(sampler)
 
     print('saving vocabulary size', corpus.vocab_size)
     f = open('./summaries/labels_%d.tsv' % time.time(), 'w')
@@ -215,7 +192,7 @@ def main():
             step = 0
             optimizer = tf.train.GradientDescentOptimizer(1.0).minimize(loss)
             while pass_n < PASSES_N:
-                samples = batch(sampler, BATCH_SIZE)
+                samples = batchifier.batch(BATCH_SIZE)
                 if len(samples) == 0:
                     # completed a pass thru the corpus
                     corpus.rewind()
