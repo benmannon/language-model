@@ -266,6 +266,11 @@ def main():
         top_k = nearest_neighbors(embeds, tf.transpose(input_batch)[0], NEIGHBORS_K)
         init = tf.global_variables_initializer()
 
+        with tf.name_scope('summaries'):
+            tf.summary.scalar('loss', loss)
+            summaries = tf.summary.merge_all()
+            summary_writer = tf.summary.FileWriter('summaries')
+
         with tf.Session(graph=graph).as_default():
 
             print('initializing')
@@ -277,6 +282,8 @@ def main():
             for step in range(0, 100000):
                 samples = batch(corpus, BATCH_SIZE, WINDOW_SIZE, NUM_SKIPS)
                 optimizer.run({input_batch: samples})
+                summary = summaries.eval(({input_batch: samples}))
+                summary_writer.add_summary(summary, step)
                 if step % 10000 == 0:
                     k_eval = top_k.eval({input_batch: samples[:2]})
                     print_neighbors(words, samples[:8][0], k_eval)
