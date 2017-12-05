@@ -1,4 +1,3 @@
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -23,10 +22,10 @@ NEGATIVE_SAMPLES = 64
 WINDOW_SIZE = 1
 NUM_SKIPS = 2
 EMBEDDING_SIZE = 128
-STEPS_N = 100000
+PASSES_N = 1
 
 # evaluation
-LOSS_INTERVAL = 2000
+LOG_INTERVAL = 2000
 NEIGHBORS_INTERVAL = 10000
 NEIGHBORS_N = 8
 NEIGHBORS_K = 8
@@ -80,6 +79,10 @@ def n_skips(corpus, w, max_n):
 
     corpus_len = len(corpus)
 
+    # return early if corpus is fully processed
+    if corpus_i >= corpus_len:
+        return []
+
     # where in the corpus to find context words
     # (stay within bounds)
     a = corpus_i - w if corpus_i >= w else 0
@@ -100,8 +103,6 @@ def n_skips(corpus, w, max_n):
 
     # step forward thru the corpus
     corpus_i += 1
-    if corpus_i >= corpus_len:
-        corpus_i = 0
 
     return skips
 
@@ -128,6 +129,11 @@ def batch(corpus, size, window_size, num_skips):
     # the batch is full; remember the spares for next time
     spares += buf[inc:]
     return np.array(samples)
+
+
+def rewind():
+    global corpus_i
+    corpus_i = 0
 
 
 def print_batch(samples, words):
@@ -293,12 +299,19 @@ def main():
             init.run()
 
             print('training')
+            pass_n = 0
             loss_n = 0
             loss_acc = 0
+            step = 0
             optimizer = tf.train.GradientDescentOptimizer(1.0).minimize(loss)
-            for step in range(0, STEPS_N):
+            while pass_n < PASSES_N:
                 neighbor_i = corpus_i
                 samples = batch(corpus, BATCH_SIZE, WINDOW_SIZE, NUM_SKIPS)
+                if len(samples) == 0:
+                    # completed a pass thru the corpus
+                    rewind()
+                    pass_n += 1
+                    continue
                 optimizer.run({input_batch: samples})
                 summary = summaries.eval(({input_batch: samples}))
                 summary_writer.add_summary(summary, step)
@@ -308,10 +321,17 @@ def main():
                     print_neighbors(words, top_k_labels, k_eval)
                 loss_n += 1
                 loss_acc += loss.eval({input_batch: samples})
-                if step % LOSS_INTERVAL == 0:
-                    print('step', step, 'avg loss', loss_acc / loss_n)
+                if step % LOG_INTERVAL == 0:
+                    print(
+                        'step {:d},'.format(step),
+                        'pass {:d} of {:d},'.format(pass_n + 1, PASSES_N),
+                        'index {:d},'.format(corpus_i),
+                        'progress {:.2f}%,'.format(corpus_i / len(corpus)),
+                        'avg loss {:.2f}'.format(loss_acc / loss_n)
+                    )
                     loss_n = 0
                     loss_acc = 0
+                step += 1
 
             print('saving embeddings')
             tf.train.Saver([embeds]).save(tf.get_default_session(), './summaries')
