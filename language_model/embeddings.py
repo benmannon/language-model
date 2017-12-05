@@ -252,6 +252,15 @@ def main():
     print('len(words) =', len(words))
     print('len(corpus) =', len(corpus))
 
+    print('saving labels (vocabulary)')
+    f = open('./summaries/labels.tsv', 'w')
+    try:
+        for word, _ in counts:
+            f.write(word)
+            f.write('\n')
+    finally:
+        f.close()
+
     # free memory
     del text_corpus
 
@@ -291,6 +300,9 @@ def main():
                 if step % 2000 == 0:
                     print('step', step, 'avg loss', loss_acc / 2000)
                     loss_acc = 0
+
+            print('saving embeddings')
+            tf.train.Saver([embeds]).save(tf.get_default_session(), './summaries')
 
 
 main()
