@@ -5,7 +5,6 @@ from __future__ import print_function
 import math
 import time
 
-import numpy as np
 import tensorflow as tf
 
 from lm_corpus import *
