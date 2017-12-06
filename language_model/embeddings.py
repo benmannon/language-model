@@ -21,6 +21,7 @@ WINDOW_SIZE = 1
 NUM_SKIPS = 2
 EMBEDDING_SIZE = 128
 PASSES_N = 1
+LEARNING_RATE = 1.0
 
 # evaluation
 LOG_INTERVAL = 2000
@@ -189,7 +190,7 @@ def main():
             loss_n = 0
             loss_acc = 0
             step = 0
-            optimizer = tf.train.GradientDescentOptimizer(1.0).minimize(loss)
+            optimizer = tf.train.GradientDescentOptimizer(LEARNING_RATE).minimize(loss)
             while pass_n < PASSES_N:
                 samples = batchifier.batch(BATCH_SIZE)
                 if len(samples) == 0:
