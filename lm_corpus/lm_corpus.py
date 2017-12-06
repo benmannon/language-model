@@ -169,7 +169,7 @@ class NSkipSampler:
         return n_skips
 
 
-class Batchifier():
+class Batchifier:
     def __init__(self, sampler):
         self._sampler = sampler
         self._spares = []
