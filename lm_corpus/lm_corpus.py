@@ -44,6 +44,7 @@ class Corpus:
 class ZipTxtCorpus(Corpus):
 
     def __init__(self, zip_file, txt_file, vocab_size):
+        super(ZipTxtCorpus, self).__init__()
         corpus_text = self._load(zip_file, txt_file)
         counts, labels, words, corpus = self._build(corpus_text, vocab_size)
         del corpus_text
@@ -62,6 +63,7 @@ class ZipTxtCorpus(Corpus):
     def _build(text_corpus, vocab_size):
 
         # occurrence counts of vocabulary words
+        # noinspection PyArgumentList
         counts = collections.Counter(text_corpus).most_common(vocab_size - 1)
 
         # build a dictionary that maps words to labels
